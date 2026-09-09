@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#
+#  Stripped down, copy-pasted parts of quick-sharun meant for simple onelf deployments
 #
 
 set -eu
