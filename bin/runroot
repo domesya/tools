@@ -1,0 +1,128 @@
+#!/bin/sh
+#
+#   runroot - a utility to run commands as root and give visual indicators
+#
+#
+
+_prog=${0##*/}
+_color_reset=$(printf '\033[0m')
+_color_red_sgr=$(printf '48;2;64;0;0')
+RUNROOT_BACKGROUND="${RUNROOT_BACKGROUND-$_color_red_sgr}"
+
+err_msg() { >&2 printf '\033[1;31m%s\033[0m\n' " $*"; }
+
+_help() {
+    cat <<EOF
+${_prog}  --  a utility for running commands as root
+
+options:
+    -h, -H, --help    show this message
+
+usage:
+    Just give a command you want to run as root, examples:
+
+    ${_prog} echo "hello from root"
+    ${_prog} rm -rf / --no-preserve-root    (please don't run this one)
+    ${_prog} apt update
+
+EOF
+    [ -n "${1:-}" ]
+    exit $?
+}
+
+_check() {
+    _prepare_rootcmd || return 1
+    [ -n "${_rootcmd:-}" ] || [ "$(id -u)" = 0 ] || return 1
+    if [ -z "${_rootcmd:-}" ] && [ "$(id -u)" != 0 ]; then
+        err_msg "We need 'pkexec' or 'lxqt-sudo' or 'run0' to perform this operation"
+        return 1
+    fi
+    echo "All fine!"
+    return 0
+}
+
+_parse_arguments() {
+    case "${1-}" in
+        ''|--help|-h|-H) _help "$@"
+            ;;
+        --check) _check 
+            ;;
+        --) shift; _main "$@"
+            ;;
+        *) _main "$@"
+            ;;
+    esac
+}
+
+_prepare_rootcmd() {
+    _rootcmd=""; _is_run0=0; _run0_extra=""; _tint=0;
+
+    if [ -n "$RUNROOT_BACKGROUND" ] \
+    && [ -z "${NO_COLOR:-}" ] \
+    && [ "${TERM:-dumb}" != "dumb" ] \
+    && [ -t 1 ]; then
+    case "${SYSTEMD_TINT_BACKGROUND:-}" in
+        0|false|no|off) ;;
+        *) _tint=1 ;;
+    esac
+    fi  
+
+    if [ "$(id -u)" = 0 ]; then _is_run0=0; _rootcmd=""
+    elif _rootcmd="$(command -v run0)"; then 
+        _is_run0=1
+        if [ "$_tint" = 1 ]; then
+            _run0_extra="--background=$RUNROOT_BACKGROUND"
+        else
+            _run0_extra="--background="  # also disables run0's implicit tint
+        fi
+    elif _rootcmd="$(command -v pkexec)"; then _is_run0=0;
+    elif _rootcmd="$(command -v lxqt-sudo)"; then _is_run0=0; 
+    fi
+}
+
+# the main function
+_main() {
+
+    _prepare_rootcmd || return 1
+
+    if [ $# -gt 0 ] && [ "${1#-}" != "$1" ]; then
+        set -- /usr/bin/env -- "$@"
+    fi
+
+    if [ "$_is_run0" = 1 ]; then
+    # native PTY re-injection, persists for whole `sh` session
+    exec "$_rootcmd" "${_run0_extra:+$_run0_extra}" --via-shell -- "$@"
+    fi
+
+    if [ "$_tint" = 1 ]; then
+        if _ptyfwd="$(command -v systemd-pty-forward)" && [ -n "${_ptyfwd:-}" ]; then
+        # same PTY re-injection as run0 for pkexec/already-root
+            if [ -z "$_rootcmd" ]; then
+                exec "$_ptyfwd" --quiet --background="$RUNROOT_BACKGROUND" -- "$@"
+            else
+                exec "$_ptyfwd" --quiet --background="$RUNROOT_BACKGROUND" -- "$_rootcmd" "$@"
+            fi
+        fi
+        # fallback only: best-effort, won't survive `sh` prompt redraws
+        
+        printf '%b' "\033[${RUNROOT_BACKGROUND}m"
+        trap 'printf "%b" "$_color_reset"' INT TERM
+        if [ -z "${_rootcmd:-}" ]; then
+            "$@"; _st=$?
+        else
+            "$_rootcmd" "$@"; _st=$?
+        fi
+        trap - INT TERM
+        printf '%b' "$_color_reset"
+        return "$_st"
+
+    fi
+
+    if [ -z "${_rootcmd:-}" ]; then
+        exec "$@"
+    fi
+    exec "$_rootcmd" "$@"
+
+}
+
+_parse_arguments "$@"
