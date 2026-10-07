@@ -1,5 +1,6 @@
 #!/bin/sh
 #
+#
 #   runroot - a utility to run commands as root and give visual indicators
 #
 #
@@ -82,7 +83,6 @@ _prepare_rootcmd() {
 
 # the main function
 _main() {
-
     _prepare_rootcmd || return 1
 
     if [ $# -gt 0 ] && [ "${1#-}" != "$1" ]; then
@@ -115,14 +115,12 @@ _main() {
         trap - INT TERM
         printf '%b' "$_color_reset"
         return "$_st"
-
     fi
 
     if [ -z "${_rootcmd:-}" ]; then
         exec "$@"
     fi
     exec "$_rootcmd" "$@"
-
 }
 
 _parse_arguments "$@"
