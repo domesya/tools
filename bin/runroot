@@ -35,7 +35,7 @@ _check() {
     _prepare_rootcmd || return 1
     [ -n "${_rootcmd:-}" ] || [ "$(id -u)" = 0 ] || return 1
     if [ -z "${_rootcmd:-}" ] && [ "$(id -u)" != 0 ]; then
-        err_msg "We need 'pkexec' or 'lxqt-sudo' or 'run0' to perform this operation"
+        err_msg "We need 'pkexec' or 'lxqt-sudo' or 'run0'"
         return 1
     fi
     echo "All fine!"
