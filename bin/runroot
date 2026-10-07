@@ -43,7 +43,7 @@ _check() {
 }
 
 _parse_arguments() {
-    case "${1-}" in
+    case "${1:-}" in
         ''|--help|-h|-H) _help "$@"
             ;;
         --check) _check 
