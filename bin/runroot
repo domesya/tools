@@ -32,10 +32,9 @@ EOF
 }
 
 _check() {
-    _prepare_rootcmd || return 1
-    [ -n "${_rootcmd:-}" ] || [ "$(id -u)" = 0 ] || return 1
+    _prepare_rootcmd || :
     if [ -z "${_rootcmd:-}" ] && [ "$(id -u)" != 0 ]; then
-        err_msg "We need 'pkexec' or 'lxqt-sudo' or 'run0'"
+        err_msg "Cannot escalate to root: no 'run0', 'pkexec' or 'lxqt-sudo' found in PATH (uid=$(id -u), not root)"
         return 1
     fi
     echo "All fine!"
@@ -77,13 +76,14 @@ _prepare_rootcmd() {
             _run0_extra="--background="  # also disables run0's implicit tint
         fi
     elif _rootcmd="$(command -v pkexec)"; then _is_run0=0;
-    elif _rootcmd="$(command -v lxqt-sudo)"; then _is_run0=0; 
+    elif _rootcmd="$(command -v lxqt-sudo)"; then _is_run0=0;
+    else return 1;
     fi
 }
 
 # the main function
 _main() {
-    _prepare_rootcmd || return 1
+    _prepare_rootcmd || { err_msg "Preparing root command failed."; return 1; }
 
     if [ $# -gt 0 ] && [ "${1#-}" != "$1" ]; then
         set -- /usr/bin/env -- "$@"
