@@ -1,0 +1,20 @@
+#compdef runroot
+# zsh completion for runroot(1) -- run0-style delegation.
+#
+# runroot has almost no options of its own (-h/-H/--help, --check, --);
+# everything else is COMMAND [ARGS...] to run as root, so after the first
+# word we delegate to the target command's completion via `_normal',
+# exactly like run0's `_arguments ... '*:: :{_normal -p $service}' does.
+#
+# Install:
+#   put this file as `_runroot' in a directory on your $fpath, e.g.
+#     ~/.local/share/zsh/site-functions/_runroot
+#   then `autoload -U compinit && compinit' (once) and restart the shell.
+
+# root sees sbin dirs too (harmless if already present).
+local -x PATH=$PATH:/sbin:/usr/sbin:/usr/local/sbin
+
+_arguments -S \
+  '(- *)'{-h,-H,--help}'[show help message and exit]' \
+  '(- *)--check[check privilege escalation works and exit]' \
+  '*:: :{_normal -p $service}'

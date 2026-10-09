@@ -1,0 +1,67 @@
+# bash completion for runroot(1)                        -*- shell-script -*-
+# run0-style delegation: complete runroot's own flags only in option
+# position, otherwise delegate to the target command's completion
+# (like run0/sudo do via _command_offset / _comp_command_offset).
+#
+# runroot syntax (see bin/runroot):
+#   runroot [-h|-H|--help]      show help (terminal)
+#   runroot --check             check escalation (terminal)
+#   runroot -- COMMAND [ARGS]   end of runroot options
+#   runroot COMMAND [ARGS]      anything else is the command to run as root
+#
+# Install:
+#   system: ~/.local/share/bash-completion/completions/runroot
+#           or /usr/share/bash-completion/completions/runroot
+#   then restart the shell (bash-completion loads it on demand).
+
+# Delegate completion to the command starting at COMP_WORDS[$1].
+# Prefers the modern bash-completion helper, falls back to the legacy
+# name used by run0/systemd-run completions, then to plain command names.
+_runroot_delegate() {
+    local offset=$1
+    # root sees sbin dirs; match what sudo's completion does.
+    local PATH=$PATH:/sbin:/usr/sbin:/usr/local/sbin
+    if declare -F _comp_command_offset >/dev/null 2>&1; then
+        _comp_command_offset "$offset"
+    elif declare -F _command_offset >/dev/null 2>&1; then
+        _command_offset "$offset"
+    else
+        # bash-completion not loaded: at least complete command names.
+        local cur=${COMP_WORDS[COMP_CWORD]}
+        COMPREPLY=($(compgen -c -- "$cur"))
+    fi
+}
+
+_runroot() {
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    local i w
+
+    for ((i = 1; i <= COMP_CWORD; i++)); do
+        w=${COMP_WORDS[i]}
+        case $w in
+            --)
+                # end of runroot options: command starts after it,
+                # e.g. `runroot -- <TAB>` delegates at 2.
+                _runroot_delegate $((i + 1))
+                return
+                ;;
+            -h | -H | --help | --check)
+                # terminal flags: nothing sensible to complete after them
+                COMPREPLY=()
+                return
+                ;;
+            -*)
+                continue
+                ;;
+            *)
+                _runroot_delegate "$i"
+                return
+                ;;
+        esac
+    done
+
+    # Still in runroot option position: offer its (tiny) flag set.
+    COMPREPLY=($(compgen -W '--help --check -- -h -H' -- "$cur"))
+}
+
+complete -F _runroot runroot
