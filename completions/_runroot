@@ -10,6 +10,11 @@
 #   put this file as `_runroot' in a directory on your $fpath, e.g.
 #     ~/.local/share/zsh/site-functions/_runroot
 #   then `autoload -U compinit && compinit' (once) and restart the shell.
+#
+# Renamed/copied binary? zsh dispatches on the `#compdef' tag below, so make
+# a renamed copy and fix the tag (one word), then rebuild the dump cache:
+#   sed 's/runroot/myroot/g' _runroot > _myroot
+#   rm -f ~/.zcompdump && exec zsh
 
 # root sees sbin dirs too (harmless if already present).
 local -x PATH=$PATH:/sbin:/usr/sbin:/usr/local/sbin

@@ -13,6 +13,11 @@
 #   system: ~/.local/share/bash-completion/completions/runroot
 #           or /usr/share/bash-completion/completions/runroot
 #   then restart the shell (bash-completion loads it on demand).
+#
+# Renamed/copied binary? Install a copy/symlink of this file under the new
+# command name -- it registers that name automatically (see below). If you
+# source this file manually from ~/.bashrc instead, add one line per name:
+#   complete -F _runroot <newname>
 
 # Delegate completion to the command starting at COMP_WORDS[$1].
 # Prefers the modern bash-completion helper, falls back to the legacy
@@ -65,3 +70,11 @@ _runroot() {
 }
 
 complete -F _runroot runroot
+# Also register under this file's installed filename, so that installing a
+# copy/symlink under a renamed command (e.g. `foo`) just works with no edits.
+# BASH_SOURCE[0] is the path of this file as it was loaded.
+_runroot_src=${BASH_SOURCE[0]-}
+if [[ ${_runroot_src##*/} != runroot && -n ${_runroot_src##*/} ]]; then
+    complete -F _runroot "${_runroot_src##*/}"
+fi
+unset _runroot_src

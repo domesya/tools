@@ -9,6 +9,14 @@
 #   copy/symlink to ~/.config/fish/completions/runroot.fish
 #   (or system-wide to /usr/share/fish/vendor_completions.d/).
 #   No shell restart needed beyond loading the file once.
+#
+# Renamed/copied binary? Just copy this file to <newname>.fish -- the
+# command name below is derived from the filename, so no edits needed:
+#   cp runroot.fish myroot.fish
+
+# The wrapped command name: our own filename minus `.fish'.
+# (Works because fish autoloads completions/<cmd>.fish for command <cmd>.)
+set -l _runroot_cmd (basename (status filename) .fish)
 
 # Strip the `runroot' prefix (and one leading `--' separator, if present)
 # and complete what remains as an independent command line. sbin dirs are
@@ -28,8 +36,8 @@ end
 # them only while no non-option argument has been given yet. They are
 # terminal: after -h/--help/--check there is nothing to complete, hence
 # the subcommand completion below is suppressed once they are seen.
-complete -c runroot -n __fish_no_arguments -s h -s H -l help -d "Show help and exit"
-complete -c runroot -n __fish_no_arguments -l check -d "Check privilege escalation works"
+complete -c $_runroot_cmd -n __fish_no_arguments -s h -s H -l help -d "Show help and exit"
+complete -c $_runroot_cmd -n __fish_no_arguments -l check -d "Check privilege escalation works"
 
 # Delegate: `runroot <TAB>` lists commands, `runroot apt <TAB>` completes apt.
-complete -c runroot -x -n 'not __fish_seen_argument -s h -s H -l help -l check' -a "(__fish_complete_runroot_subcommand)"
+complete -c $_runroot_cmd -x -n 'not __fish_seen_argument -s h -s H -l help -l check' -a "(__fish_complete_runroot_subcommand)"
