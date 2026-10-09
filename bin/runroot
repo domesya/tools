@@ -81,13 +81,77 @@ _prepare_rootcmd() {
     fi
 }
 
+# Resolve a command name to an absolute path using the *caller's*
+# environment (PATH/HOME/PWD) before privilege escalation resets them
+# (sudo secure_path, pkexec minimal env, run0 root env).
+# Prints resolved path on success, returns non-zero on failure
+# (builtin, function, alias, unresolvable) -- caller keeps original.
+_resolve_cmd_path() {
+    _rc_cmd=${1:-}
+    [ -n "$_rc_cmd" ] || return 1
+    # don't touch option-like names; /usr/bin/env wrapper handles those
+    case $_rc_cmd in -* ) return 1 ;; esac
+    # leading ~/ (quoted, so the calling shell didn't expand it)
+    # shellcheck disable=SC2088 # intentional literal ~/ match
+    case $_rc_cmd in
+        '~/'*) _rc_cmd=${HOME:-~}/${_rc_cmd#\~/} ;;
+        '~') _rc_cmd=${HOME:-~} ;;
+    esac
+    case $_rc_cmd in
+        */*)
+            case $_rc_cmd in
+                /*) printf '%s\n' "$_rc_cmd"; return 0 ;;
+                *)
+                    _rc_dir=${_rc_cmd%/*}
+                    _rc_base=${_rc_cmd##*/}
+                    if [ -n "$_rc_dir" ] && [ -d "$_rc_dir" ]; then
+                        _rc_abs=$(cd -- "$_rc_dir" && pwd -P) || return 1
+                        printf '%s\n' "$_rc_abs/$_rc_base"
+                        return 0
+                    fi
+                    return 1
+                    ;;
+            esac
+            ;;
+        *)
+            _rc_found=$(command -v "$_rc_cmd" 2>/dev/null) || return 1
+            # bare name means builtin/function/alias -- keep as-is so the
+            # target shell (run0 --via-shell) can still interpret it
+            case $_rc_found in
+                */*) printf '%s\n' "$_rc_found"; return 0 ;;
+                *) return 1 ;;
+            esac
+            ;;
+    esac
+}
+
 # the main function
+# Replace argv[0] (or argv[2] behind /usr/bin/env --) with its absolute
+# path when resolvable. Best-effort: never fails, never reorders args.
+# NOTE: must run inline in _main (functions get their own $@ copy, so a
+# helper cannot set the caller's positional params).
 _main() {
     _prepare_rootcmd || { err_msg "Preparing root command failed."; return 1; }
 
     if [ $# -gt 0 ] && [ "${1#-}" != "$1" ]; then
         set -- /usr/bin/env -- "$@"
     fi
+
+    # Resolve via caller's PATH/HOME before escalating, so scripts in
+    # ~/.local/bin (or other user-only PATH dirs) are found by root.
+    # Absolute paths pass through run0/pkexec/lxqt-sudo unchanged.
+    if [ "${1:-}" = /usr/bin/env ] && [ "${2:-}" = -- ] && [ $# -ge 3 ]; then
+        _rr_resolved=$(_resolve_cmd_path "$3") && {
+            _rr_bin=$1; _rr_sep=$2; _rr_cmd=$_rr_resolved; shift 3
+            set -- "$_rr_bin" "$_rr_sep" "$_rr_cmd" "$@"
+        }
+    elif [ $# -ge 1 ]; then
+        _rr_resolved=$(_resolve_cmd_path "$1") && {
+            _rr_cmd=$_rr_resolved; shift
+            set -- "$_rr_cmd" "$@"
+        }
+    fi
+    unset _rr_bin _rr_sep _rr_cmd _rr_resolved
 
     if [ "$_is_run0" = 1 ]; then
     # native PTY re-injection, persists for whole `sh` session
