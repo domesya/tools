@@ -169,7 +169,7 @@ _process_input_file() {
 		return 1
 	fi
 
-	_is_spooky "$_dest" 
+	_is_spooky "$_dest"
 	
 	if [ ! -d "$_dest" ]; then
 		echo "No such directory, will attempt to create." 
@@ -179,6 +179,11 @@ _process_input_file() {
 	_script_path="${3:-}"
 	if [ -z "$_script_path" ]; then
 		>&2 echo "Please provide output script path."
+		return 1
+	fi
+	
+	if [ -e "$_script_path" ]; then
+		>&2 echo "Target file exists. Refusing to overwrite."
 		return 1
 	fi
 	
