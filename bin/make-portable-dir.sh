@@ -28,63 +28,34 @@ EOF
 exit $?
 }
 
+_err_msg() {
+	>&2 printf '(\033[31mERR\033[0m)%s\n' " $*"
+}
+
+_inf_msg() {
+	printf '(\033[34mINF\033[0m)%s\n' " $*"
+}
+
+_suc_msg() {
+	printf '(\033[32mSUC\033[0m)%s\n' " $*"
+}
+
 # https://github.com/dylanaraps/pure-sh-bible
 dirname() {
     # Usage: dirname "path"
-	
-    # If '$1' is empty set 'dir' to '.', else '$1'.
     dir="${1:-.}"
-
-    # Strip all trailing forward-slashes '/' from
-    # the end of the string.
-    #
-    # "${dir##*[!/]}": Remove all non-forward-slashes
-    # from the start of the string, leaving us with only
-    # the trailing slashes.
-    # "${dir%%"${}"}": Remove the result of the above
-    # substitution (a string of forward slashes) from the
-    # end of the original string.
     dir="${dir%%"${dir##*[!/]}"}"
-
-    # If the variable *does not* contain any forward slashes
-    # set its value to '.'.
     [ "${dir##*/*}" ] && dir=.
-
-    # Remove everything *after* the last forward-slash '/'.
     dir="${dir%/*}"
-
-    # Again, strip all trailing forward-slashes '/' from
-    # the end of the string (see above).
     dir="${dir%%"${dir##*[!/]}"}"
-
-    # Print the resulting string and if it is empty,
-    # print '/'.
     printf '%s\n' "${dir:-/}"
 }
 
 basename() {
     # Usage: basename "path" ["suffix"]
-
-    # Strip all trailing forward-slashes '/' from
-    # the end of the string.
-    #
-    # "${1##*[!/]}": Remove all non-forward-slashes
-    # from the start of the string, leaving us with only
-    # the trailing slashes.
-    # "${1%%"${}"}:  Remove the result of the above
-    # substitution (a string of forward slashes) from the
-    # end of the original string.
     dir="${1%"${1##*[!/]}"}"
-
-    # Remove everything before the final forward-slash '/'.
     dir="${dir##*/}"
-
-    # If a suffix was passed to the function, remove it from
-    # the end of the resulting string.
     dir="${dir%"${2:-}"}"
-
-    # Print the resulting string and if it is empty,
-    # print '/'.
     printf '%s\n' "${dir:-/}"
 }
 
@@ -112,9 +83,10 @@ _readlink() (
 # https://github.com/Samueru-sama/simple-appimage-sandbox
 _is_spooky() {
 	_to_check="${1:-}"
-	[ -n "$_to_check" ] || \
-	{ >&2 echo "_is_spooky: Please provide an argument"; return 1; }
-	
+	if [ -z "$_to_check" ]; then
+		_err_msg "_is_spooky: Please provide an argument"
+		return 1
+	fi
 	case "$_to_check" in
 		"" 					|\
 		"/" 				|\
@@ -145,7 +117,7 @@ _is_spooky() {
 		*.zsh*       		|\
 		*fish        		|\
 		"$ZDOTDIR"			\
-		) >&2 echo "The provided directory is spooky, won't touch."; return 1;
+		) _err_msg "The provided directory is spooky, won't touch."; return 1;
 			;;
 		/*) return 0;
 			;;
@@ -158,32 +130,32 @@ _process_input_file() {
 	_full="${1:-}"
 	
 	if [ ! -x "$_full" ] || [ ! -f "$_full" ]; then
-		>&2 echo "The argument doesn't appear to be an executable."
+		_err_msg "The argument doesn't appear to be an executable."
 		return 1
 	fi
 	
 	_dest="${2:-}"
 	
 	if [ -z "$_dest" ]; then
-		>&2 echo "Please provide a directory to be used."
+		_err_msg "Please provide a directory to be used."
 		return 1
 	fi
 
 	_is_spooky "$_dest"
 	
 	if [ ! -d "$_dest" ]; then
-		echo "No such directory, will attempt to create." 
+		_inf_msg "No such directory, will attempt to create." 
 		mkdir -p "$_dest"
 	fi
 		
 	_script_path="${3:-}"
 	if [ -z "$_script_path" ]; then
-		>&2 echo "Please provide output script path."
+		_err_msg "Please provide output script path."
 		return 1
 	fi
 	
 	if [ -e "$_script_path" ]; then
-		>&2 echo "Target file exists. Refusing to overwrite."
+		_err_msg "Target file exists. Refusing to overwrite."
 		return 1
 	fi
 	
@@ -191,16 +163,16 @@ _process_input_file() {
 	APP_NAME="$(basename "$_full")"
 	DEST="$(_readlink -f "$_dest")"
 	SCRIPT_PATH="$_script_path"
-	echo "\"$APP_NAME\" at \"$APP_DIR\" with \"$DEST\""		
+	_inf_msg "\"$APP_NAME\" at \"$APP_DIR\" with \"$DEST\""		
 	
-	echo "Creating associated directories."
+	_inf_msg "Creating associated directories."
 	mkdir -p "$DEST/.local/share" \
          	 "$DEST/.config" \
          	 "$DEST/.cache" \
          	 "$DEST/.local/state"
 	
 	_write_script;
-	echo "All done!"
+	_suc_msg "All done!"
 		
 }
 
@@ -208,16 +180,16 @@ _process_input_file() {
 _write_script() {
 
 	if [ -z "${SCRIPT_PATH:-}" ]; then
-		>&2 echo "_write_script: We need \$SCRIPT_PATH to be set." 
+		_err_msg "_write_script: We need \$SCRIPT_PATH to be set." 
 		return 1
 	elif [ -z "${APP_NAME:-}" ]; then 
-		>&2 echo "_write_script: We need \$APP_NAME to be set." 
+		_err_msg "_write_script: We need \$APP_NAME to be set." 
 		return 1
 	elif [ -z "${APP_DIR:-}" ]; then 
-		>&2 echo "_write_script: We need \$APP_DIR to be set." 
+		_err_msg "_write_script: We need \$APP_DIR to be set." 
 		return 1
 	elif [ -z "${DEST:-}" ]; then 
-		>&2 echo "_write_script: We need \$DEST to be set." 
+		_err_msg "_write_script: We need \$DEST to be set." 
 		return 1
 	fi
 
@@ -241,7 +213,7 @@ _parse_arguments() {
 	case "${1:-}" in
 		''|--help|-H|-h) _help "$@";
 			;;
-		*) _process_input_file "$@"
+		*) _process_input_file "$@";
 			;;
 	esac
 }
