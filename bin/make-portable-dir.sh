@@ -15,6 +15,7 @@ _prog="${0##*/}"
 
 _help() {
 cat <<EOF
+
 [Info]:	$_prog  --  A program made for giving appimages their portable directories
 
 [Usage]: $_prog </path/to/executable> </path/to/portable/dir> </output/script/path>
@@ -24,8 +25,7 @@ cat <<EOF
 	--help, -h, -H		Show this message.
 
 EOF
-[ -n "${1:-}" ]
-exit $?
+exit "${1:-0}"
 }
 
 _err_msg() {
@@ -195,6 +195,7 @@ _write_script() {
 
 cat > "$SCRIPT_PATH" <<EOF
 #!/bin/sh
+[ "\${MPD_DEBUG:-}" = 1 ] && set -x 
 APP_DIR="$APP_DIR"
 APP_NAME="$APP_NAME"
 DEST="$DEST"
@@ -209,13 +210,40 @@ EOF
 chmod +x "$SCRIPT_PATH"
 }
 
+_process_input_new() {
+	if [ -z "$_full" ]; then
+		_full="$1"
+	elif [ -z "$_dest" ]; then
+		_dest="$1"
+	elif [ -z "$_script_path" ]; then
+		_script_path="$1"
+	else 
+		_err_msg "Too many arguments: $1"
+		_help 1;
+	fi
+}
+
 _parse_arguments() {
-	case "${1:-}" in
-		''|--help|-H|-h) _help "$@";
-			;;
-		*) _process_input_file "$@";
-			;;
-	esac
+[ $# -eq 0 ] && _help 1;
+	_full="";
+	_dest="";
+	_script_path="";
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			--help|-H|-h) _help 0;
+				;;
+			-*) _err_msg "Unknown option: $1"; _help 1;
+				;;
+			*) _process_input_new "$1";
+				;;
+		esac
+		shift;
+	done
+	if [ -z "$_full" ] || [ -z "$_dest" ] || [ -z "$_script_path" ]; then
+		_err_msg "Missing required arguments."
+		_help 1;
+	fi
+	_process_input_file "$_full" "$_dest" "$_script_path";
 }
 
 _parse_arguments "$@";
