@@ -224,10 +224,10 @@ _process_input_new() {
 }
 
 _parse_arguments() {
-[ $# -eq 0 ] && _help 1;
 	_full="";
 	_dest="";
 	_script_path="";
+	[ $# -eq 0 ] && _help 1;
 	while [ $# -gt 0 ]; do
 		case "$1" in
 			--help|-H|-h) _help 0;
